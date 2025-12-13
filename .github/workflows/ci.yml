@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install backend deps
+        run: npm ci
+      - name: Run backend tests
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/nevo_test_drive_ci
+        run: |
+          # start a local MongoDB using docker for CI
+          docker run -d --name mongodb-ci -p 27017:27017 mongo:6.0 || true
+          npm test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install frontend deps
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
