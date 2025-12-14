@@ -49,4 +49,16 @@ export class ReservationRepository implements AbstractRepository<IReservation> {
     }).lean();
     return conflicts.length > 0;
   }
+
+  async getBookedMinutesOnDate(vehicleId: string, dateISO: string): Promise<number> {
+    const reservations = await this.model.find({ vehicleId }).lean();
+    const targetDate = new Date(dateISO).toISOString().slice(0, 10);
+    
+    return reservations
+      .filter(r => new Date(r.startDateTime).toISOString().slice(0, 10) === targetDate)
+      .reduce((sum, r) => {
+        const duration = Math.max(0, Math.floor((new Date(r.endDateTime).getTime() - new Date(r.startDateTime).getTime()) / 60000));
+        return sum + duration;
+      }, 0);
+  }
 }

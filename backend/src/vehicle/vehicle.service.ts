@@ -15,10 +15,10 @@ export class VehicleService {
   }
 
   async findAllLocations(): Promise<string[]> {
-    const vehicles = await this.repo.find();
-    const locations = [...new Set(vehicles.map(v => v.location.toLowerCase()))];
-    return locations.sort();
+    const vehicles = await this.repo.find({}, {_id: 0, location: 1});
+    return [...new Set(vehicles.map(v => v.location))].sort();
   }
+
 
   async findAllVehicleTypes(location?: string): Promise<string[]> {
     const filter = location ? { location: location.toLowerCase() } : {};

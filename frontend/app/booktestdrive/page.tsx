@@ -1,25 +1,24 @@
 'use client';
 
-import React, { Suspense } from 'react';
-import { Box, Typography, Container, Skeleton } from '@mui/material';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { useTestDriveBooking } from '../../lib/hooks';
 
 // Lazy load components
 const LocationSelector = dynamic(() => import('../../components/LocationSelector'), {
-  loading: () => <Skeleton variant="rounded" height={56} />,
+  loading: () => <div className="h-14 bg-gray-200 rounded animate-pulse" />,
 });
 const VehicleSelector = dynamic(() => import('../../components/VehicleSelector'), {
-  loading: () => <Skeleton variant="rounded" height={56} />,
+  loading: () => <div className="h-14 bg-gray-200 rounded animate-pulse" />,
 });
 const VehicleInfo = dynamic(() => import('../../components/VehicleInfo'), {
-  loading: () => <Skeleton variant="rounded" height={80} />,
+  loading: () => <div className="h-20 bg-gray-200 rounded animate-pulse" />,
 });
 const BookingFormFields = dynamic(() => import('../../components/BookingFormFields'), {
-  loading: () => <Skeleton variant="rounded" height={300} />,
+  loading: () => <div className="h-72 bg-gray-200 rounded animate-pulse" />,
 });
 const BookingButton = dynamic(() => import('../../components/BookingButton'), {
-  loading: () => <Skeleton variant="rounded" height={40} />,
+  loading: () => <div className="h-10 bg-gray-200 rounded animate-pulse" />,
 });
 const MessageDisplay = dynamic(() => import('../../components/MessageDisplay'), {
   loading: () => null,
@@ -58,45 +57,57 @@ export default function BookTestDrive() {
   };
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Book Test Drive
-      </Typography>
-      <Box sx={{ border: '1px solid #ddd', p: 2, borderRadius: 2, maxWidth: 500 }}>
-        <LocationSelector
-          locations={locations}
-          selectedLocation={selectedLocation}
-          onLocationChange={setSelectedLocation}
-          loading={loadingLocations}
-        />
+    <div className="min-h-screen py-8 px-4 bg-gray-50">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Book Test Drive</h1>
+          <p className="text-gray-600">Fill in the details below to schedule your test drive</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6 md:p-8 space-y-6">
+          <div className="space-y-6">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Select Location & Vehicle</h2>
+              <LocationSelector
+                locations={locations}
+                selectedLocation={selectedLocation}
+                onLocationChange={setSelectedLocation}
+                loading={loadingLocations}
+              />
 
-        <VehicleSelector
-          vehicles={vehicles}
-          selectedVehicle={selectedVehicle}
-          onVehicleChange={setSelectedVehicle}
-          loading={loadingVehicles}
-          disabled={!selectedLocation}
-        />
+              <VehicleSelector
+                vehicles={vehicles}
+                selectedVehicle={selectedVehicle}
+                onVehicleChange={setSelectedVehicle}
+                loading={loadingVehicles}
+                disabled={!selectedLocation}
+              />
 
-        {selectedVehicle && <VehicleInfo vehicle={selectedVehicle} />}
+              {selectedVehicle && <VehicleInfo vehicle={selectedVehicle} />}
+            </div>
 
-        <BookingFormFields
-          formData={formData}
-          onFormDataChange={updateFormData}
-          selectedVehicle={selectedVehicle}
-          minDate={minDate}
-          maxDate={maxDate}
-        />
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Booking Details</h2>
+              <BookingFormFields
+                formData={formData}
+                onFormDataChange={updateFormData}
+                selectedVehicle={selectedVehicle}
+                minDate={minDate}
+                maxDate={maxDate}
+              />
+            </div>
 
-        <BookingButton
-          onClick={handleBooking}
-          loading={loading}
-          disabled={!selectedLocation || !selectedVehicle}
-        />
+            <BookingButton
+              onClick={handleBooking}
+              loading={loading}
+              disabled={!selectedLocation || !selectedVehicle}
+            />
 
-        <MessageDisplay message={message} />
-      </Box>
-    </Container>
+            <MessageDisplay message={message} />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

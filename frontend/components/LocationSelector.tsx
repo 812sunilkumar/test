@@ -1,6 +1,5 @@
 'use client';
 import React from 'react';
-import { FormControl, InputLabel, Select, MenuItem, CircularProgress } from '@mui/material';
 
 interface LocationSelectorProps {
   locations: string[];
@@ -20,27 +19,26 @@ export default function LocationSelector({
   label = 'Location',
 }: LocationSelectorProps) {
   return (
-    <FormControl fullWidth sx={{ my: 1 }} disabled={disabled || loading}>
-      <InputLabel>{label}</InputLabel>
-      <Select
+    <div className="mb-5">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      <select
         value={selectedLocation}
         onChange={(e) => onLocationChange(e.target.value)}
-        label={label}
+        disabled={disabled || loading}
+        className="w-full px-4 py-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-gray-900"
       >
-        {loading ? (
-          <MenuItem disabled>
-            <CircularProgress size={20} sx={{ mr: 1 }} />
-            Loading locations...
-          </MenuItem>
-        ) : (
-          locations.map((loc) => (
-            <MenuItem key={loc} value={loc}>
-              {loc.charAt(0).toUpperCase() + loc.slice(1)}
-            </MenuItem>
-          ))
-        )}
-      </Select>
-    </FormControl>
+        <option value="">
+          {loading ? 'Loading locations...' : 'Select location'}
+        </option>
+        {locations.map((loc) => (
+          <option key={loc} value={loc}>
+            {loc.charAt(0).toUpperCase() + loc.slice(1)}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

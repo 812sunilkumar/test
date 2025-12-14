@@ -1,23 +1,27 @@
 'use client';
 import React from 'react';
-import { Box, Typography } from '@mui/material';
 import { Vehicle } from '../lib/types';
 
 interface VehicleInfoProps {
   vehicle: Vehicle;
-  sx?: object;
 }
 
-export default function VehicleInfo({ vehicle, sx }: VehicleInfoProps) {
+export default function VehicleInfo({ vehicle }: VehicleInfoProps) {
   return (
-    <Box sx={{ mb: 1, p: 1.5, bgcolor: 'info.light', borderRadius: 1, ...sx }}>
-      <Typography variant="body2" sx={{ mb: 0.5 }}>
-        <strong>Available Days:</strong> {vehicle.availableDays.join(', ').toUpperCase()}
-      </Typography>
-      <Typography variant="body2" sx={{ mb: 0.5 }}>
-        <strong>Available Time Window:</strong> {vehicle.availableFromTime} - {vehicle.availableToTime} (subject to availability)
-      </Typography>
-    </Box>
+    <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-md">
+      <h3 className="text-sm font-semibold text-blue-900 mb-3">Vehicle Availability</h3>
+      <div className="space-y-2">
+        <p className="text-sm text-gray-700">
+          <span className="font-medium text-gray-800">Available Days:</span>{' '}
+          <span className="text-gray-700">{vehicle.availableDays.join(', ').toUpperCase()}</span>
+        </p>
+        <p className="text-sm text-gray-700">
+          <span className="font-medium text-gray-800">Available Time Window:</span>{' '}
+          <span className="text-gray-700">{vehicle.availableFromTime} - {vehicle.availableToTime}</span>
+          <span className="text-gray-500 text-xs ml-1">(subject to availability)</span>
+        </p>
+      </div>
+    </div>
   );
 }
 

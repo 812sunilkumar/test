@@ -19,8 +19,8 @@ export class VehicleRepository implements AbstractRepository<IVehicle> {
     return res as IVehicle | null;
   }
 
-  async find(filter: any = {}): Promise<IVehicle[]> {
-    return this.model.find(filter).lean();
+  async find(filter: any = {}, projection: any = {}): Promise<IVehicle[] | any[]> {
+    return this.model.find(filter, projection).lean();
   }
 
   async update(id: string, update: Partial<IVehicle>): Promise<IVehicle | null> {

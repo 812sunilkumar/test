@@ -10,8 +10,13 @@ interface UseTestDriveBookingProps {
 
 export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriveBookingProps) {
   const api = useMemo(() => createApiClient(apiBase), [apiBase]);
+  const apiBaseRef = useRef(apiBase);
   const onErrorRef = useRef(onError);
   const onSuccessRef = useRef(onSuccess);
+
+  useEffect(() => {
+    apiBaseRef.current = apiBase;
+  }, [apiBase]);
 
   // Update refs when callbacks change, but don't trigger effects
   useEffect(() => {
@@ -57,7 +62,7 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
         setLoadingLocations(true);
         const locations = await api.getLocations();
         setLocations(locations || []);
-        if (locations && locations.length > 0) setSelectedLocation(locations[0]);
+        // Don't auto-select first location - let user choose
       } catch (error) {
         const errorMsg = 'Error loading locations: ' + (error as Error).message;
         setMessage(errorMsg);
@@ -72,14 +77,19 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
   // Load vehicles when location changes only
   useEffect(() => {
     const fetchVehicles = async () => {
-      if (!selectedLocation) return;
+      if (!selectedLocation) {
+        // Clear vehicles when no location is selected
+        setVehicles([]);
+        setSelectedVehicle(null);
+        return;
+      }
       try {
         setLoadingVehicles(true);
         setSelectedVehicle(null);
         setFormData(prev => ({ ...prev, date: '' }));
         const data = await api.getVehicles(selectedLocation);
         setVehicles(data || []);
-        if (data && data.length > 0) setSelectedVehicle(data[0]);
+        // Don't auto-select first vehicle - let user choose
       } catch (error) {
         const errorMsg = 'Error loading vehicles: ' + (error as Error).message;
         setMessage(errorMsg);
@@ -137,20 +147,13 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
     }
 
     setLoading(true);
-    setMessage('Checking availability...');
+    setMessage('Booking your test drive...');
     
     try {
-      const avail = await checkAvailability();
-      if (!avail.available) { 
-        setMessage('Not available: ' + (avail.reason || '')); 
-        setLoading(false);
-        return false; 
-      }
-      
-      const vehicleId = avail.vehicle?.id || selectedVehicle.id;
-      
-      const payload: ReservationPayload = {
-        vehicleId: vehicleId,
+      // Single API call that checks availability and creates reservation
+      const payload = {
+        location: selectedLocation,
+        vehicleType: selectedVehicle.type,
         startDateTime: new Date(`${formData.date}T${formData.time}:00Z`).toISOString(),
         durationMins: formData.duration,
         customerName: formData.name,
@@ -158,22 +161,29 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
         customerPhone: formData.phone
       };
       
-      const { response: r, data } = await api.createReservation(payload);
+      const response = await fetch(`${apiBaseRef.current}/book`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       
-      if (!r.ok) { 
+      const data = await response.json();
+      
+      if (!response.ok) { 
         let errorMsg = 'Booking failed: ';
         if (data.message) {
           errorMsg += Array.isArray(data.message) ? data.message.join(', ') : data.message;
+        } else if (data.reason) {
+          errorMsg += data.reason;
         } else {
           errorMsg += JSON.stringify(data);
         }
         setMessage(errorMsg);
         onErrorRef.current?.(errorMsg);
-        setLoading(false);
         return false; 
       }
       
-      const reservationId = data._id || data.id || '';
+      const reservationId = data.reservation?._id || data.reservation?.id || '';
       setMessage('Booked successfully! Reservation ID: ' + reservationId);
       onSuccessRef.current?.(reservationId);
       

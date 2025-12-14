@@ -12,20 +12,37 @@ export class ReservationController {
     return { status: 'ok' };
   }
 
-  @Post('reservations')
-  async create(@Body() body: ScheduleReservationDto) {
-    return this.service.schedule(body);
-  }
+  // @Post('reservations')
+  // async create(@Body() body: ScheduleReservationDto) {
+  //   return this.service.schedule(body);
+  // }
 
-  @Get('availability')
-  async availability(@Query() query: CheckAvailabilityDto) {
+  // @Get('availability')
+  // async availability(@Query() query: CheckAvailabilityDto) {
+  //   try {
+  //     const result = await this.service.checkAvailability(query.location, query.vehicleType, query.startDateTime, query.durationMins);
+  //     return result;
+  //   } catch (error) {
+  //     throw new BadRequestException(error.message || 'Error checking availability');
+  //   }
+  // }
+
+  @Post('book')
+  async book(@Body() body: ScheduleReservationDto & { location: string; vehicleType: string }) {
     try {
-      const result = await this.service.checkAvailability(query.location, query.vehicleType, query.startDateTime, query.durationMins);
+      const result = await this.service.checkAndBook(
+        body.location,
+        body.vehicleType,
+        body.startDateTime,
+        body.durationMins,
+        body.customerName,
+        body.customerEmail,
+        body.customerPhone
+      );
       return result;
     } catch (error) {
-      throw new BadRequestException(error.message || 'Error checking availability');
+      throw new BadRequestException(error.message || 'Error during booking');
     }
   }
 
-  // Note: 'available-time-slots' endpoint removed; frontend shouldn't call it anymore.
 }

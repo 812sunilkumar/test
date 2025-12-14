@@ -8,12 +8,12 @@ export class VehicleController {
     private service: VehicleService,
     private vehicleRepo: VehicleRepository,
   ) {}
-
+  // this api is being called
   @Get('locations')
   async getLocations() {
     return { locations: await this.service.findAllLocations() };
   }
-
+// this is not happening
   @Get('types')
   async getVehicleTypes(@Query('location') location?: string) {
     return { types: await this.service.findAllVehicleTypes(location) };
