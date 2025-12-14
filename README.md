@@ -28,13 +28,145 @@ npm run dev
 # open http://localhost:3000
 ```
 
-## Tests
-Backend tests:
+## Testing
+
+### Backend Tests
+
+The backend uses Jest for unit and end-to-end (E2E) testing.
+
+#### Prerequisites
+- MongoDB running locally (or set `MONGO_URI` environment variable)
+- Backend dependencies installed
+
+#### Run All Tests
 ```bash
 cd backend
-npm ci
+npm install
 npm test
 ```
+
+#### Run Unit Tests Only
+```bash
+cd backend
+npm run test:unit
+```
+
+#### Run E2E Tests Only
+```bash
+cd backend
+npm run test:e2e
+```
+
+#### Run Tests in Watch Mode
+```bash
+cd backend
+npm run test:watch
+```
+
+#### Run Tests with Coverage Report
+```bash
+cd backend
+npm run test:cov
+```
+
+#### Run Tests in Debug Mode
+```bash
+cd backend
+npm run test:debug
+```
+
+**Backend Test Structure:**
+- Unit tests: `backend/src/**/*.spec.ts`
+- E2E tests: `backend/test/e2e/**/*.e2e-spec.ts`
+
+### Frontend Tests
+
+The frontend uses Playwright for end-to-end (E2E) testing.
+
+#### Prerequisites
+- Node.js >= 18
+- Frontend dependencies installed
+- Backend API running (default: `http://localhost:5000`)
+
+#### First-Time Setup
+```bash
+cd frontend
+npm install
+npx playwright install
+```
+
+#### Run All E2E Tests
+```bash
+cd frontend
+npm run test:e2e
+```
+
+This will:
+- Automatically start the Next.js dev server on port 3000
+- Run all tests in Chromium, Firefox, and WebKit
+- Generate an HTML report
+
+#### Run Tests with Interactive UI (Recommended for Development)
+```bash
+cd frontend
+npm run test:e2e:ui
+```
+
+#### Run Tests in Debug Mode
+```bash
+cd frontend
+npm run test:e2e:debug
+```
+
+#### Run Tests in Headed Mode (See Browser)
+```bash
+cd frontend
+npm run test:e2e:headed
+```
+
+#### Run Specific Test File
+```bash
+cd frontend
+# Run only home page tests
+npx playwright test e2e/home.spec.ts
+
+# Run only booking flow tests
+npx playwright test e2e/booking-flow.spec.ts
+```
+
+#### View Test Report
+```bash
+cd frontend
+npx playwright show-report
+```
+
+**Frontend Test Structure:**
+- E2E tests: `frontend/e2e/**/*.spec.ts`
+
+### Running All Tests
+
+To run both backend and frontend tests:
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+npm run start:dev
+```
+
+**Terminal 2 - Backend Tests:**
+```bash
+cd backend
+npm run test:unit
+npm run test:e2e
+```
+
+**Terminal 3 - Frontend Tests:**
+```bash
+cd frontend
+npm run test:e2e
+```
+
+**Note:** Frontend tests automatically start the dev server, but you need to ensure the backend is running first.
 
 ## CI
 A GitHub Actions workflow is included at `.github/workflows/ci.yml`. It starts a MongoDB docker container in the CI runner for tests.
