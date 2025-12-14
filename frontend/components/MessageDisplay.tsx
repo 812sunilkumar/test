@@ -3,12 +3,12 @@ import React from 'react';
 
 interface MessageDisplayProps {
   message: string;
+  isError?: boolean;
 }
 
-export default function MessageDisplay({ message }: MessageDisplayProps) {
+export default function MessageDisplay({ message, isError = false }: MessageDisplayProps) {
   if (!message) return null;
 
-  const isError = message.includes('Error') || message.includes('Not available') || message.includes('failed');
   const bgColor = isError ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200';
   const textColor = isError ? 'text-red-800' : 'text-green-800';
   const iconColor = isError ? 'text-red-500' : 'text-green-500';

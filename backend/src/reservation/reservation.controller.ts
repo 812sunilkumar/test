@@ -1,36 +1,25 @@
-import { Controller, Post, Body, Get, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, BadRequestException } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
-import { CheckAvailabilityDto } from './dto/check-availability.dto';
 import { ScheduleReservationDto } from './dto/schedule-reservation.dto';
+
+interface BookingDto extends ScheduleReservationDto {
+  location: string;
+  vehicleType: string;
+}
 
 @Controller()
 export class ReservationController {
-  constructor(private service: ReservationService) {}
+  constructor(private readonly service: ReservationService) {}
 
   @Get('status')
   status() {
     return { status: 'ok' };
   }
 
-  // @Post('reservations')
-  // async create(@Body() body: ScheduleReservationDto) {
-  //   return this.service.schedule(body);
-  // }
-
-  // @Get('availability')
-  // async availability(@Query() query: CheckAvailabilityDto) {
-  //   try {
-  //     const result = await this.service.checkAvailability(query.location, query.vehicleType, query.startDateTime, query.durationMins);
-  //     return result;
-  //   } catch (error) {
-  //     throw new BadRequestException(error.message || 'Error checking availability');
-  //   }
-  // }
-
   @Post('book')
-  async book(@Body() body: ScheduleReservationDto & { location: string; vehicleType: string }) {
+  async book(@Body() body: BookingDto) {
     try {
-      const result = await this.service.checkAndBook(
+      return await this.service.checkAndBook(
         body.location,
         body.vehicleType,
         body.startDateTime,
@@ -39,10 +28,8 @@ export class ReservationController {
         body.customerEmail,
         body.customerPhone
       );
-      return result;
     } catch (error) {
       throw new BadRequestException(error.message || 'Error during booking');
     }
   }
-
 }

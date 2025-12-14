@@ -3,6 +3,25 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { useTestDriveBooking } from '../../lib/hooks';
+// Loading component
+// const LoadingSkeleton = ({ height }: { height: string }) => (
+//   <div className={`${height} bg-gray-200 rounded animate-pulse`} />
+// );
+
+
+// // Only lazy load heavy/non-critical components
+// const VehicleInfo = dynamic(() => import('../../components/VehicleInfo'), {
+//   ssr: false,
+//   loading: () => <LoadingSkeleton height="h-20" />,
+// });
+
+// // Import critical components directly (they're needed immediately)
+// import LocationSelector from '../../components/LocationSelector';
+// import VehicleSelector from '../../components/VehicleSelector';
+// import BookingFormFields from '../../components/BookingFormFields';
+// import BookingButton from '../../components/BookingButton';
+// import MessageDisplay from '../../components/MessageDisplay';
+
 
 // Lazy load components
 const LocationSelector = dynamic(() => import('../../components/LocationSelector'), {
@@ -32,6 +51,8 @@ export default function BookTestDrive() {
     selectedVehicle,
     formData,
     message,
+    isErrorMessage,
+    isFormValid,
     loading,
     loadingLocations,
     loadingVehicles,
@@ -97,13 +118,15 @@ export default function BookTestDrive() {
               />
             </div>
 
-            <BookingButton
-              onClick={handleBooking}
-              loading={loading}
-              disabled={!selectedLocation || !selectedVehicle}
-            />
+            {isFormValid && (
+              <BookingButton
+                onClick={handleBooking}
+                loading={loading}
+                disabled={false}
+              />
+            )}
 
-            <MessageDisplay message={message} />
+            <MessageDisplay message={message} isError={isErrorMessage} />
           </div>
         </div>
       </div>

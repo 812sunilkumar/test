@@ -1,10 +1,32 @@
-import { Vehicle, AvailabilityResponse, ReservationPayload, ReservationResponse } from '../types';
+import { Vehicle } from '../types';
+
+export interface BookingPayload {
+  location: string;
+  vehicleType: string;
+  startDateTime: string;
+  durationMins: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+}
+
+export interface BookingResponse {
+  reservation?: {
+    _id?: string;
+    id?: string;
+  };
+  _id?: string;
+  id?: string;
+  // Error response fields (from NestJS BadRequestException)
+  message?: string | string[];
+  reason?: string;
+  statusCode?: number;
+}
 
 export interface ApiClient {
   getLocations: () => Promise<string[]>;
   getVehicles: (location: string) => Promise<Vehicle[]>;
-  checkAvailability: (params: { location: string; vehicleType: string; startDateTime: string; durationMins: number; }) => Promise<AvailabilityResponse>;
-  createReservation: (payload: ReservationPayload) => Promise<{ response: Response; data: ReservationResponse; }>;
+  book: (payload: BookingPayload) => Promise<{ response: Response; data: BookingResponse }>;
 }
 
 export const createApiClient = (apiBase: string): ApiClient => {
@@ -20,29 +42,20 @@ export const createApiClient = (apiBase: string): ApiClient => {
     return data || [];
   };
 
-  const checkAvailability = async (params: { location: string; vehicleType: string; startDateTime: string; durationMins: number; }): Promise<AvailabilityResponse> => {
-    const { location, vehicleType, startDateTime, durationMins } = params;
-    const res = await fetch(
-      `${apiBase}/availability?location=${encodeURIComponent(location)}&vehicleType=${encodeURIComponent(vehicleType)}&startDateTime=${encodeURIComponent(startDateTime)}&durationMins=${durationMins}`
-    );
-    return res.json();
-  };
-
-  const createReservation = async (payload: ReservationPayload): Promise<{ response: Response; data: ReservationResponse; }> => {
-    const response = await fetch(`${apiBase}/reservations`, {
+  const book = async (payload: BookingPayload): Promise<{ response: Response; data: BookingResponse }> => {
+    const response = await fetch(`${apiBase}/book`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data: ReservationResponse = await response.json();
+    const data: BookingResponse = await response.json();
     return { response, data };
   };
 
   return {
     getLocations,
     getVehicles,
-    checkAvailability,
-    createReservation,
+    book,
   };
 };
 

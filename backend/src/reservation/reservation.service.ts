@@ -7,177 +7,196 @@ import { ScheduleReservationDto } from './dto/schedule-reservation.dto';
 
 dayjs.extend(utc);
 
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  vehicle?: any;
+}
+
 @Injectable()
 export class ReservationService {
+  private readonly DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  private readonly DAY_SHORT = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
   constructor(
     private reservationRepo: ReservationRepository,
     private vehicleRepo: VehicleRepository,
   ) {}
 
-  private timeToMin(t: string) {
-    // Handle both "08:00" and "08:00:00" formats
-    const parts = t.split(':').map(Number);
+  private timeToMinutes(time: string): number {
+    const parts = time.split(':').map(Number);
     return parts[0] * 60 + (parts[1] || 0);
   }
 
   private formatTime(minutes: number): string {
-    return `${Math.floor(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+    const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
+    const mins = (minutes % 60).toString().padStart(2, '0');
+    return `${hours}:${mins}`;
   }
 
   private getDayInfo(date: dayjs.Dayjs) {
-    const dayShort = ['sun','mon','tue','wed','thu','fri','sat'][date.day()];
-    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][date.day()];
-    return { dayShort, dayName };
+    const dayIndex = date.day();
+    return {
+      dayShort: this.DAY_SHORT[dayIndex],
+      dayName: this.DAY_NAMES[dayIndex]
+    };
   }
 
-  // Validate basic booking constraints (past, 14-day limit)
-  private validateBookingDates(start: dayjs.Dayjs): string | null {
+  private validateDateTime(startISO: string): ValidationResult {
+    if (!startISO || !dayjs.utc(startISO).isValid()) {
+      return { valid: false, error: 'Invalid startDateTime format' };
+    }
+
+    const start = dayjs.utc(startISO);
     const now = dayjs.utc();
-    if (start.isBefore(now)) return 'Cannot book in the past';
-    if (start.diff(now, 'day') > 14) return 'Bookings allowed up to 14 days in advance';
-    return null;
+
+    if (start.isBefore(now)) {
+      return { valid: false, error: 'Cannot book in the past' };
+    }
+
+    if (start.diff(now, 'day') > 14) {
+      return { valid: false, error: 'Bookings allowed up to 14 days in advance' };
+    }
+
+    return { valid: true };
   }
 
-  // Validate vehicle availability for a specific time slot
-  private async validateVehicleSlot(vehicle: any, start: dayjs.Dayjs, end: dayjs.Dayjs): Promise<string | null> {
+  private async validateVehicleAvailability(
+    vehicle: any,
+    start: dayjs.Dayjs,
+    end: dayjs.Dayjs
+  ): Promise<ValidationResult> {
     const { dayShort, dayName } = this.getDayInfo(start);
 
     // Check day availability
     if (!vehicle.availableDays.map(d => d.toLowerCase()).includes(dayShort)) {
-      return `Vehicle is not available on ${dayName}. Available days: ${vehicle.availableDays.join(', ').toUpperCase()}`;
+      return {
+        valid: false,
+        error: `Vehicle is not available on ${dayName}. Available days: ${vehicle.availableDays.join(', ').toUpperCase()}`
+      };
     }
 
     // Check time window
-    const fromMin = this.timeToMin(vehicle.availableFromTime);
-    const toMin = this.timeToMin(vehicle.availableToTime);
+    const fromMin = this.timeToMinutes(vehicle.availableFromTime);
+    const toMin = this.timeToMinutes(vehicle.availableToTime);
     const startMin = start.utc().hour() * 60 + start.utc().minute();
     const endMin = end.utc().hour() * 60 + end.utc().minute();
 
-    if (!(startMin >= fromMin && endMin <= toMin)) {
-      const startTime = this.formatTime(startMin);
-      const endTime = this.formatTime(endMin);
-      return `Requested time ${startTime}-${endTime} is outside vehicle availability window (${vehicle.availableFromTime} - ${vehicle.availableToTime})`;
+    if (startMin < fromMin || endMin > toMin) {
+      return {
+        valid: false,
+        error: `Requested time ${this.formatTime(startMin)}-${this.formatTime(endMin)} is outside vehicle availability window (${vehicle.availableFromTime} - ${vehicle.availableToTime})`
+      };
     }
 
-    // Check conflicts with existing bookings
-    const conflict = await this.reservationRepo.findConflicting(
+    // Check conflicts
+    const hasConflict = await this.reservationRepo.findConflicting(
       vehicle.id,
       start.toISOString(),
       end.toISOString(),
       vehicle.minimumMinutesBetweenBookings
     );
 
-    if (conflict) {
+    if (hasConflict) {
       const bufferMsg = vehicle.minimumMinutesBetweenBookings > 0
         ? ` (including ${vehicle.minimumMinutesBetweenBookings} minute buffer between bookings)`
         : '';
-      return `Vehicle is already booked for that time${bufferMsg}. Please select a different time slot.`;
+      return {
+        valid: false,
+        error: `Vehicle is already booked for that time${bufferMsg}. Please select a different time slot.`
+      };
     }
 
-    return null;
+    return { valid: true, vehicle };
   }
 
-  async schedule(dto: ScheduleReservationDto) {
-    const vehicle = await this.vehicleRepo.findById(dto.vehicleId);
-    if (!vehicle) throw new BadRequestException('Vehicle not found');
+  async checkAvailability(
+    location: string,
+    vehicleType: string,
+    startISO: string,
+    durationMins: number
+  ) {
+    // Validate date/time
+    const dateValidation = this.validateDateTime(startISO);
+    if (!dateValidation.valid) {
+      return { available: false, reason: dateValidation.error };
+    }
 
-    const start = dayjs.utc(dto.startDateTime);
-    const end = start.add(dto.durationMins, 'minute');
+    const start = dayjs.utc(startISO);
+    const end = start.add(durationMins, 'minute');
 
-    // Create reservation (validation already done by controller/checkAvailability)
-    const reservation = {
-      vehicleId: vehicle.id,
-      startDateTime: start.toISOString(),
-      endDateTime: end.toISOString(),
-      customerName: dto.customerName,
-      customerEmail: dto.customerEmail,
-      customerPhone: dto.customerPhone,
+    // Find vehicles
+    const vehicles = await this.vehicleRepo.find({
+      type: vehicleType.toLowerCase(),
+      location: location.toLowerCase()
+    });
+
+    if (vehicles.length === 0) {
+      return {
+        available: false,
+        reason: `No vehicles found for type '${vehicleType}' at location '${location}'`
+      };
+    }
+
+    // Check each vehicle for availability
+    for (const vehicle of vehicles) {
+      const validation = await this.validateVehicleAvailability(vehicle, start, end);
+      if (validation.valid) {
+        return { available: true, vehicle };
+      }
+    }
+
+    return {
+      available: false,
+      reason: 'No available vehicles for the selected time slot'
     };
-
-    return await this.reservationRepo.create(reservation);
   }
 
-  // Validate booking dates and vehicle slot
-  async validateBooking(vehicleId: string, startISO: string, durationMins: number): Promise<string | null> {
-    const vehicle = await this.vehicleRepo.findById(vehicleId);
-    if (!vehicle) return 'Vehicle not found';
+  async checkAndBook(
+    location: string,
+    vehicleType: string,
+    startISO: string,
+    durationMins: number,
+    customerName: string,
+    customerEmail: string,
+    customerPhone: string
+  ) {
+    const availability = await this.checkAvailability(location, vehicleType, startISO, durationMins);
 
-    const start = dayjs.utc(startISO);
-    const end = start.add(durationMins, 'minute');
-
-    const dateError = this.validateBookingDates(start);
-    if (dateError) return dateError;
-
-    const slotError = await this.validateVehicleSlot(vehicle, start, end);
-    return slotError || null;
-  }
-
-  async checkAvailability(location: string, vehicleType: string, startISO: string, durationMins: number) {
-    if (!startISO || !dayjs.utc(startISO).isValid()) {
-      return { available: false, reason: 'Invalid startDateTime format' };
-    }
-
-    const start = dayjs.utc(startISO);
-    const end = start.add(durationMins, 'minute');
-
-    // Validate dates
-    const dateError = this.validateBookingDates(start);
-    if (dateError) return { available: false, reason: dateError };
-
-    try {
-      const vehicles = await this.vehicleRepo.find({
-        type: vehicleType.toLowerCase(),
-        location: location.toLowerCase()
-      });
-
-      if (vehicles.length === 0) {
-        return {
-          available: false,
-          reason: `No vehicles found for type '${vehicleType}' at location '${location}'`
-        };
-      }
-
-      const availableCars = [];
-
-      for (const vehicle of vehicles) {
-        const error = await this.validateVehicleSlot(vehicle, start, end);
-        if (!error) {
-          availableCars.push(vehicle);
-        }
-      }
-
-      if (availableCars.length === 0) {
-        return {
-          available: false,
-          reason: `No available vehicles for the selected time slot`
-        };
-      }
-
-      return { available: true, vehicle: availableCars[0] };
-    } catch (error) {
-      throw new BadRequestException(`Error checking availability: ${error.message}`);
-    }
-  }
-
-  async checkAndBook(location: string, vehicleType: string, startISO: string, durationMins: number, customerName: string, customerEmail: string, customerPhone: string) {
-    const avail = await this.checkAvailability(location, vehicleType, startISO, durationMins);
-
-    if (!avail.available) {
-      return avail;
+    if (!availability.available) {
+      throw new BadRequestException(availability.reason || 'No available vehicles for the selected time slot');
     }
 
     try {
-      const reservation = await this.schedule({
-        vehicleId: avail.vehicle!.id,
+      const reservation = await this.createReservation({
+        vehicleId: availability.vehicle.id,
         startDateTime: startISO,
         durationMins,
         customerName,
         customerEmail,
         customerPhone,
       });
+
       return { available: true, reservation };
     } catch (error) {
-      return { available: false, reason: `Booking failed: ${error.message}` };
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Booking failed: ${error.message}`);
     }
+  }
+
+  private async createReservation(dto: ScheduleReservationDto) {
+    const start = dayjs.utc(dto.startDateTime);
+    const end = start.add(dto.durationMins, 'minute');
+
+    return await this.reservationRepo.create({
+      vehicleId: dto.vehicleId,
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString(),
+      customerName: dto.customerName,
+      customerEmail: dto.customerEmail,
+      customerPhone: dto.customerPhone,
+    });
   }
 }

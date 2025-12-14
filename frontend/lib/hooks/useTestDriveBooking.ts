@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Vehicle, BookingFormData, AvailabilityResponse, ReservationPayload, ReservationResponse } from '../types';
+import { Vehicle, BookingFormData } from '../types';
 import { createApiClient } from '../api/client';
 
 interface UseTestDriveBookingProps {
@@ -40,9 +40,22 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
     phone: '',
   });
   const [message, setMessage] = useState('');
+  const [isErrorMessage, setIsErrorMessage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+
+  // Auto-dismiss messages after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+        setIsErrorMessage(false);
+      }, 5000); // 5 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   // Calculate min and max dates (today and 14 days from today)
   const { minDate, maxDate } = useMemo(() => {
@@ -66,6 +79,7 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
       } catch (error) {
         const errorMsg = 'Error loading locations: ' + (error as Error).message;
         setMessage(errorMsg);
+        setIsErrorMessage(true);
         onErrorRef.current?.(errorMsg);
       } finally {
         setLoadingLocations(false);
@@ -93,6 +107,7 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
       } catch (error) {
         const errorMsg = 'Error loading vehicles: ' + (error as Error).message;
         setMessage(errorMsg);
+        setIsErrorMessage(true);
         onErrorRef.current?.(errorMsg);
       } finally {
         setLoadingVehicles(false);
@@ -121,33 +136,40 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
     return null;
   };
 
-  const checkAvailability = async (): Promise<AvailabilityResponse> => {
-    if (!selectedVehicle || !selectedLocation) {
-      return { available: false, reason: 'Please select location and vehicle' };
-    }
-    const start = new Date(`${formData.date}T${formData.time}:00Z`).toISOString();
-    return api.checkAvailability({
-      location: selectedLocation,
-      vehicleType: selectedVehicle.type,
-      startDateTime: start,
-      durationMins: formData.duration,
-    });
-  };
+  // Computed value to check if form is valid (for UI purposes like showing submit button)
+  const isFormValid = useMemo(() => {
+    if (!selectedLocation) return false;
+    if (!selectedVehicle) return false;
+    if (!formData.date) return false;
+    if (!formData.time) return false;
+    if (formData.duration <= 0) return false;
+    if (!formData.name.trim()) return false;
+    if (!formData.email.trim()) return false;
+    if (!formData.phone.trim()) return false;
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) return false;
+    
+    return true;
+  }, [selectedLocation, selectedVehicle, formData.date, formData.time, formData.duration, formData.name, formData.email, formData.phone]);
 
   const submitBooking = async (): Promise<boolean> => {
     const validationError = validateForm();
     if (validationError) {
       setMessage(validationError);
+      setIsErrorMessage(true);
       return false;
     }
 
     if (!selectedVehicle) {
       setMessage('Please select a vehicle');
+      setIsErrorMessage(true);
       return false;
     }
 
     setLoading(true);
     setMessage('Booking your test drive...');
+    setIsErrorMessage(false);
     
     try {
       // Single API call that checks availability and creates reservation
@@ -161,30 +183,38 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
         customerPhone: formData.phone
       };
       
-      const response = await fetch(`${apiBaseRef.current}/book`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const { response, data } = await api.book(payload);
       
-      const data = await response.json();
-      
+      // Check for HTTP errors (backend now throws BadRequestException for unavailable bookings)
       if (!response.ok) { 
-        let errorMsg = 'Booking failed: ';
+        let errorMsg = '';
         if (data.message) {
-          errorMsg += Array.isArray(data.message) ? data.message.join(', ') : data.message;
+          errorMsg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
         } else if (data.reason) {
-          errorMsg += data.reason;
+          errorMsg = data.reason;
+        } else if (typeof data === 'string') {
+          errorMsg = data;
         } else {
-          errorMsg += JSON.stringify(data);
+          errorMsg = 'Booking failed. Please try again.';
         }
         setMessage(errorMsg);
+        setIsErrorMessage(true);
         onErrorRef.current?.(errorMsg);
         return false; 
       }
       
-      const reservationId = data.reservation?._id || data.reservation?.id || '';
+      // Success - extract reservation ID
+      const reservationId = data.reservation?._id || data.reservation?.id || data._id || data.id || '';
+      if (!reservationId) {
+        const errorMsg = 'Booking failed: No reservation ID received';
+        setMessage(errorMsg);
+        setIsErrorMessage(true);
+        onErrorRef.current?.(errorMsg);
+        return false;
+      }
+      
       setMessage('Booked successfully! Reservation ID: ' + reservationId);
+      setIsErrorMessage(false);
       onSuccessRef.current?.(reservationId);
       
       // Reset form on success
@@ -201,6 +231,7 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
     } catch (e: any) {
       const errorMsg = 'Error: ' + e.message;
       setMessage(errorMsg);
+      setIsErrorMessage(true);
       onErrorRef.current?.(errorMsg);
       return false;
     } finally {
@@ -216,6 +247,8 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
     selectedVehicle,
     formData,
     message,
+    isErrorMessage,
+    isFormValid,
     loading,
     loadingLocations,
     loadingVehicles,
