@@ -24,7 +24,9 @@ describe('ReservationService', () => {
       vehicleId: 'v1',
       startDateTime: dayjs().toISOString(),
       durationMins: 30,
-      customerName: 'a'
+      customerName: 'a',
+      customerEmail: 'a@example.com',
+      customerPhone: '1234567890'
     })).rejects.toThrow();
   });
 

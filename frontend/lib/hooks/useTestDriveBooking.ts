@@ -15,6 +15,7 @@ export function useTestDriveBooking({ apiBase, onError, onSuccess }: UseTestDriv
 
   // Update refs when callbacks change, but don't trigger effects
   useEffect(() => {
+    
     onErrorRef.current = onError;
   }, [onError]);
 
