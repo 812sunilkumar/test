@@ -9,5 +9,5 @@ export declare class ReservationRepository implements AbstractRepository<IReserv
     findById(id: string): Promise<IReservation | null>;
     find(filter?: any): Promise<IReservation[]>;
     update(id: string, update: Partial<IReservation>): Promise<IReservation | null>;
-    findConflicting(vehicleId: string, startISO: string, endISO: string): Promise<boolean>;
+    findConflicting(vehicleId: string, startISO: string, endISO: string, minimumMinutesBetween?: number): Promise<boolean>;
 }

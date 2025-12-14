@@ -19,6 +19,20 @@ let VehicleService = class VehicleService {
     async listByTypeAndLocation(type, location) {
         return this.repo.find({ type: type.toLowerCase(), location: location.toLowerCase() });
     }
+    async listByLocation(location) {
+        return this.repo.find({ location: location.toLowerCase() });
+    }
+    async findAllLocations() {
+        const vehicles = await this.repo.find();
+        const locations = [...new Set(vehicles.map(v => v.location.toLowerCase()))];
+        return locations.sort();
+    }
+    async findAllVehicleTypes(location) {
+        const filter = location ? { location: location.toLowerCase() } : {};
+        const vehicles = await this.repo.find(filter);
+        const types = [...new Set(vehicles.map(v => v.type.toLowerCase()))];
+        return types.sort();
+    }
     async findById(id) {
         return this.repo.findById(id);
     }

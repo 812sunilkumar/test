@@ -27,15 +27,24 @@ export class ReservationRepository implements AbstractRepository<IReservation> {
     return this.model.findByIdAndUpdate(id, update, { new: true }).lean();
   }
 
-  async findConflicting(vehicleId: string, startISO: string, endISO: string): Promise<boolean> {
+  async findConflicting(vehicleId: string, startISO: string, endISO: string, minimumMinutesBetween?: number): Promise<boolean> {
     const start = new Date(startISO);
     const end = new Date(endISO);
+    
+    // If minimumMinutesBetween is specified, expand the conflict window
+    let conflictStart = start;
+    let conflictEnd = end;
+    if (minimumMinutesBetween && minimumMinutesBetween > 0) {
+      conflictStart = new Date(start.getTime() - minimumMinutesBetween * 60 * 1000);
+      conflictEnd = new Date(end.getTime() + minimumMinutesBetween * 60 * 1000);
+    }
+    
     const conflicts = await this.model.find({
       vehicleId,
       $or: [
-        { $and: [{ startDateTime: { $lte: start.toISOString() } }, { endDateTime: { $gt: start.toISOString() } }] },
-        { $and: [{ startDateTime: { $lt: end.toISOString() } }, { endDateTime: { $gte: end.toISOString() } }] },
-        { $and: [{ startDateTime: { $gte: start.toISOString() } }, { endDateTime: { $lte: end.toISOString() } }] }
+        { $and: [{ startDateTime: { $lte: conflictStart.toISOString() } }, { endDateTime: { $gt: conflictStart.toISOString() } }] },
+        { $and: [{ startDateTime: { $lt: conflictEnd.toISOString() } }, { endDateTime: { $gte: conflictEnd.toISOString() } }] },
+        { $and: [{ startDateTime: { $gte: conflictStart.toISOString() } }, { endDateTime: { $lte: conflictEnd.toISOString() } }] }
       ]
     }).lean();
     return conflicts.length > 0;

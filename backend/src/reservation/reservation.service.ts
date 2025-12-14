@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { ReservationRepository } from './reservation.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
+import { ScheduleReservationDto } from './dto/schedule-reservation.dto';
 
 dayjs.extend(utc);
 
@@ -14,11 +15,12 @@ export class ReservationService {
   ) {}
 
   private timeToMin(t: string) {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
+    // Handle both "08:00" and "08:00:00" formats
+    const parts = t.split(':').map(Number);
+    return parts[0] * 60 + (parts[1] || 0);
   }
 
-  async schedule(dto: any) {
+  async schedule(dto: ScheduleReservationDto) {
     const vehicle = await this.vehicleRepo.findById(dto.vehicleId);
     if (!vehicle) throw new BadRequestException('Vehicle not found');
 
@@ -38,17 +40,32 @@ export class ReservationService {
 
     // validate day
     const dayShort = ['sun','mon','tue','wed','thu','fri','sat'][start.day()];
+    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][start.day()];
     if (!vehicle.availableDays.map(d => d.toLowerCase()).includes(dayShort))
-      throw new BadRequestException('Vehicle not available on that day');
+      throw new BadRequestException(`Vehicle is not available on ${dayName}. Available days: ${vehicle.availableDays.join(', ').toUpperCase()}`);
 
     const fromMin = this.timeToMin(vehicle.availableFromTime);
     const toMin = this.timeToMin(vehicle.availableToTime);
     const startMin = start.utc().hour() * 60 + start.utc().minute();
     const endMin = end.utc().hour() * 60 + end.utc().minute();
-    if (!(startMin >= fromMin && endMin <= toMin)) throw new BadRequestException('Requested time outside vehicle availability');
+    if (!(startMin >= fromMin && endMin <= toMin)) {
+      const startTime = `${Math.floor(startMin/60).toString().padStart(2,'0')}:${(startMin%60).toString().padStart(2,'0')}`;
+      const endTime = `${Math.floor(endMin/60).toString().padStart(2,'0')}:${(endMin%60).toString().padStart(2,'0')}`;
+      throw new BadRequestException(`Requested time ${startTime}-${endTime} is outside vehicle availability window (${vehicle.availableFromTime} - ${vehicle.availableToTime})`);
+    }
 
-    const conflict = await this.reservationRepo.findConflicting(vehicle.id, start.toISOString(), end.toISOString());
-    if (conflict) throw new BadRequestException('Vehicle already booked for that time');
+    const conflict = await this.reservationRepo.findConflicting(
+      vehicle.id, 
+      start.toISOString(), 
+      end.toISOString(),
+      vehicle.minimumMinutesBetweenBookings
+    );
+    if (conflict) {
+      const bufferMsg = vehicle.minimumMinutesBetweenBookings > 0 
+        ? ` (including ${vehicle.minimumMinutesBetweenBookings} minute buffer between bookings)`
+        : '';
+      throw new BadRequestException(`Vehicle is already booked for that time${bufferMsg}. Please select a different time slot.`);
+    }
 
     const reservation = {
       vehicleId: vehicle.id,
@@ -85,19 +102,61 @@ export class ReservationService {
     
     try {
       const vehicles = await this.vehicleRepo.find({ type: vehicleType.toLowerCase(), location: location.toLowerCase() });
+      
+      if (vehicles.length === 0) {
+        return { 
+          available: false, 
+          reason: `No vehicles found for type '${vehicleType}' at location '${location}'` 
+        };
+      }
+
+      const dayShort = ['sun','mon','tue','wed','thu','fri','sat'][start.day()];
+      const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][start.day()];
       const candidates = [];
+      const reasons: string[] = [];
+      
       for (const v of vehicles) {
-        const dayShort = ['sun','mon','tue','wed','thu','fri','sat'][start.day()];
-        if (!v.availableDays.map(d=>d.toLowerCase()).includes(dayShort)) continue;
+        // Check day availability
+        if (!v.availableDays.map(d=>d.toLowerCase()).includes(dayShort)) {
+          reasons.push(`Vehicle ${v.id}: Not available on ${dayName}`);
+          continue;
+        }
+        
+        // Check time window
         const fromMin = this.timeToMin(v.availableFromTime);
         const toMin = this.timeToMin(v.availableToTime);
         const startMin = start.utc().hour()*60 + start.utc().minute();
         const endMin = end.utc().hour()*60 + end.utc().minute();
-        if (!(startMin >= fromMin && endMin <= toMin)) continue;
-        const conflict = await this.reservationRepo.findConflicting(v.id, start.toISOString(), end.toISOString());
-        if (!conflict) candidates.push(v);
+        
+        if (!(startMin >= fromMin && endMin <= toMin)) {
+          const startTime = `${Math.floor(startMin/60).toString().padStart(2,'0')}:${(startMin%60).toString().padStart(2,'0')}`;
+          const endTime = `${Math.floor(endMin/60).toString().padStart(2,'0')}:${(endMin%60).toString().padStart(2,'0')}`;
+          reasons.push(`Vehicle ${v.id}: Requested time ${startTime}-${endTime} outside availability window ${v.availableFromTime}-${v.availableToTime}`);
+          continue;
+        }
+        
+        // Check conflicts
+        const conflict = await this.reservationRepo.findConflicting(
+          v.id, 
+          start.toISOString(), 
+          end.toISOString(),
+          v.minimumMinutesBetweenBookings
+        );
+        
+        if (conflict) {
+          reasons.push(`Vehicle ${v.id}: Already booked or conflicts with minimum ${v.minimumMinutesBetweenBookings} minutes between bookings`);
+          continue;
+        }
+        
+        candidates.push(v);
       }
-      if (candidates.length === 0) return { available: false, reason: 'No available vehicles' };
+      
+      if (candidates.length === 0) {
+        return { 
+          available: false, 
+          reason: `No available vehicles. Details: ${reasons.join('; ')}` 
+        };
+      }
       // compute total booked minutes for each candidate on the same day, to pick the least loaded vehicle
       const stats = [];
       for (const v of candidates) {
@@ -119,6 +178,59 @@ export class ReservationService {
     } catch (error) {
       throw new BadRequestException(`Error checking availability: ${error.message}`);
     }
+  }
 
+  async getAvailableTimeSlots(vehicleId: string, date: string, durationMins: number): Promise<string[]> {
+    const vehicle = await this.vehicleRepo.findById(vehicleId);
+    if (!vehicle) throw new BadRequestException('Vehicle not found');
+
+    const selectedDate = dayjs.utc(date);
+    const dayShort = ['sun','mon','tue','wed','thu','fri','sat'][selectedDate.day()];
+    
+    // Check if vehicle is available on this day
+    if (!vehicle.availableDays.map(d => d.toLowerCase()).includes(dayShort)) {
+      return [];
+    }
+
+    const fromMin = this.timeToMin(vehicle.availableFromTime);
+    const toMin = this.timeToMin(vehicle.availableToTime);
+    const availableSlots: string[] = [];
+
+    // Get all existing reservations for this vehicle on this date
+    const reservations = await this.reservationRepo.find({ vehicleId });
+    const dayReservations = reservations.filter(r => {
+      const resDate = dayjs.utc(r.startDateTime);
+      return resDate.format('YYYY-MM-DD') === selectedDate.format('YYYY-MM-DD');
+    });
+
+    // Generate time slots in 15-minute intervals
+    for (let slotMin = fromMin; slotMin + durationMins <= toMin; slotMin += 15) {
+      const slotStart = dayjs.utc(date).startOf('day').add(slotMin, 'minute');
+      const slotEnd = slotStart.add(durationMins, 'minute');
+      
+      // Check if this slot conflicts with existing reservations (including buffer)
+      let hasConflict = false;
+      for (const reservation of dayReservations) {
+        const resStart = dayjs.utc(reservation.startDateTime);
+        const resEnd = dayjs.utc(reservation.endDateTime);
+        
+        // Check for overlap with buffer
+        const slotStartWithBuffer = slotStart.subtract(vehicle.minimumMinutesBetweenBookings, 'minute');
+        const slotEndWithBuffer = slotEnd.add(vehicle.minimumMinutesBetweenBookings, 'minute');
+        
+        if (
+          (slotStartWithBuffer.isBefore(resEnd) && slotEndWithBuffer.isAfter(resStart))
+        ) {
+          hasConflict = true;
+          break;
+        }
+      }
+      
+      if (!hasConflict) {
+        availableSlots.push(slotStart.format('HH:mm'));
+      }
+    }
+
+    return availableSlots;
   }
 }

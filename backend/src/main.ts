@@ -8,7 +8,13 @@ async function bootstrap() {
     origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }));
   await app.listen(process.env.PORT || 5000);
   console.log('Backend running on', process.env.PORT || 5000);
 }

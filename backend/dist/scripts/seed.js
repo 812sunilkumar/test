@@ -12,8 +12,14 @@ async function main() {
     const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/nevo_test_drive';
     await mongoose_1.default.connect(uri);
     console.log('Connected to', uri);
-    const vehicleFile = path_1.default.join(process.cwd(), '..', 'data', 'vehicles.json');
-    const reservationFile = path_1.default.join(process.cwd(), '..', 'data', 'reservations.json');
+    const possiblePaths = [
+        path_1.default.join(process.cwd(), 'data', 'vehicles.json'),
+        path_1.default.join(process.cwd(), 'vehicles.json'),
+        path_1.default.join(__dirname, '..', 'data', 'vehicles.json'),
+        path_1.default.join(__dirname, '..', 'vehicles.json'),
+    ];
+    const vehicleFile = possiblePaths.find(p => fs_1.default.existsSync(p)) || possiblePaths[0];
+    const reservationFile = vehicleFile.replace('vehicles.json', 'reservations.json');
     const vehicleData = fs_1.default.existsSync(vehicleFile) ? JSON.parse(fs_1.default.readFileSync(vehicleFile, 'utf8')).vehicles : [];
     const reservationData = fs_1.default.existsSync(reservationFile) ? JSON.parse(fs_1.default.readFileSync(reservationFile, 'utf8')).reservations : [];
     const vehicleColl = mongoose_1.default.connection.collection('vehicles');

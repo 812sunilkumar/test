@@ -1,35 +1,31 @@
 import { Controller, Post, Body, Get, Query, BadRequestException } from '@nestjs/common';
 import { ReservationService } from './reservation.service';
+import { CheckAvailabilityDto } from './dto/check-availability.dto';
+import { ScheduleReservationDto } from './dto/schedule-reservation.dto';
 
 @Controller()
 export class ReservationController {
   constructor(private service: ReservationService) {}
 
+  @Get('status')
+  status() {
+    return { status: 'ok' };
+  }
+
   @Post('reservations')
-  async create(@Body() body: any) {
+  async create(@Body() body: ScheduleReservationDto) {
     return this.service.schedule(body);
   }
 
   @Get('availability')
-  async availability(
-    @Query('location') location: string, 
-    @Query('vehicleType') vehicleType: string, 
-    @Query('startDateTime') startDateTime: string, 
-    @Query('durationMins') durationMins: string
-  ) {
-    if (!location || !vehicleType || !startDateTime || !durationMins) {
-      throw new BadRequestException('Missing required parameters: location, vehicleType, startDateTime, durationMins');
-    }
-    
-    const duration = Number(durationMins);
-    if (isNaN(duration) || duration <= 0) {
-      throw new BadRequestException('durationMins must be a positive number');
-    }
-
+  async availability(@Query() query: CheckAvailabilityDto) {
     try {
-      return await this.service.checkAvailability(location, vehicleType, startDateTime, duration);
+      const result = await this.service.checkAvailability(query.location, query.vehicleType, query.startDateTime, query.durationMins);
+      return result;
     } catch (error) {
       throw new BadRequestException(error.message || 'Error checking availability');
     }
   }
+
+  // Note: 'available-time-slots' endpoint removed; frontend shouldn't call it anymore.
 }

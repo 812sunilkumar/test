@@ -6,14 +6,16 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next && rm -rf node_modules/.cache"
   },
   "dependencies": {
+    "@emotion/cache": "^11.11.0",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "5.14.0",
     "@mui/material": "5.14.0",
-    "next": "13.4.1",
+    "next": "14.0.0",
     "react": "18.2.0",
     "react-dom": "18.2.0"
   },

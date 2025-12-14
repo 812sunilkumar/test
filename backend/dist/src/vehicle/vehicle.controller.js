@@ -15,14 +15,41 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VehicleController = void 0;
 const common_1 = require("@nestjs/common");
 const vehicle_service_1 = require("./vehicle.service");
+const vehicle_repository_1 = require("./vehicle.repository");
 let VehicleController = class VehicleController {
-    constructor(service) {
+    constructor(service, vehicleRepo) {
         this.service = service;
+        this.vehicleRepo = vehicleRepo;
+    }
+    async getLocations() {
+        return { locations: await this.service.findAllLocations() };
+    }
+    async getVehicleTypes(location) {
+        return { types: await this.service.findAllVehicleTypes(location) };
     }
     async list(type, location) {
-        return this.service.listByTypeAndLocation(type, location);
+        if (type && location) {
+            return this.service.listByTypeAndLocation(type, location);
+        }
+        if (location) {
+            return this.service.listByLocation(location);
+        }
+        return this.vehicleRepo.find();
     }
 };
+__decorate([
+    (0, common_1.Get)('locations'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], VehicleController.prototype, "getLocations", null);
+__decorate([
+    (0, common_1.Get)('types'),
+    __param(0, (0, common_1.Query)('location')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], VehicleController.prototype, "getVehicleTypes", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('type')),
@@ -33,7 +60,8 @@ __decorate([
 ], VehicleController.prototype, "list", null);
 VehicleController = __decorate([
     (0, common_1.Controller)('vehicles'),
-    __metadata("design:paramtypes", [vehicle_service_1.VehicleService])
+    __metadata("design:paramtypes", [vehicle_service_1.VehicleService,
+        vehicle_repository_1.VehicleRepository])
 ], VehicleController);
 exports.VehicleController = VehicleController;
 //# sourceMappingURL=vehicle.controller.js.map

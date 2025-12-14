@@ -15,23 +15,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReservationController = void 0;
 const common_1 = require("@nestjs/common");
 const reservation_service_1 = require("./reservation.service");
+const check_availability_dto_1 = require("./dto/check-availability.dto");
+const schedule_reservation_dto_1 = require("./dto/schedule-reservation.dto");
 let ReservationController = class ReservationController {
     constructor(service) {
         this.service = service;
     }
+    status() {
+        return { status: 'ok' };
+    }
     async create(body) {
         return this.service.schedule(body);
     }
-    async availability(location, vehicleType, startDateTime, durationMins) {
-        if (!location || !vehicleType || !startDateTime || !durationMins) {
-            throw new common_1.BadRequestException('Missing required parameters: location, vehicleType, startDateTime, durationMins');
-        }
-        const duration = Number(durationMins);
-        if (isNaN(duration) || duration <= 0) {
-            throw new common_1.BadRequestException('durationMins must be a positive number');
-        }
+    async availability(query) {
         try {
-            return await this.service.checkAvailability(location, vehicleType, startDateTime, duration);
+            const result = await this.service.checkAvailability(query.location, query.vehicleType, query.startDateTime, query.durationMins);
+            return result;
         }
         catch (error) {
             throw new common_1.BadRequestException(error.message || 'Error checking availability');
@@ -39,20 +38,23 @@ let ReservationController = class ReservationController {
     }
 };
 __decorate([
+    (0, common_1.Get)('status'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], ReservationController.prototype, "status", null);
+__decorate([
     (0, common_1.Post)('reservations'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [schedule_reservation_dto_1.ScheduleReservationDto]),
     __metadata("design:returntype", Promise)
 ], ReservationController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)('availability'),
-    __param(0, (0, common_1.Query)('location')),
-    __param(1, (0, common_1.Query)('vehicleType')),
-    __param(2, (0, common_1.Query)('startDateTime')),
-    __param(3, (0, common_1.Query)('durationMins')),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [check_availability_dto_1.CheckAvailabilityDto]),
     __metadata("design:returntype", Promise)
 ], ReservationController.prototype, "availability", null);
 ReservationController = __decorate([

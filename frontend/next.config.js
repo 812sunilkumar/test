@@ -1,6 +1,9 @@
 module.exports = {
   reactStrictMode: true,
+  swcMinify: true,
   compiler: {
-    emotion: true,
+    emotion: {
+      sourceMap: true,
+    },
   },
 };
