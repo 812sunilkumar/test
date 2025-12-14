@@ -1,11 +1,125 @@
-# ignore frontend files/folders
-frontend/node_modules
-frontend/.next
-frontend/package-lock.json
-frontend/dist
+# Dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
+pnpm-lock.yaml
+**/pnpm-lock.yaml
 
-# ignore backend files/folders
-backend/node_modules
-backend/package-lock.json
-backend/dist
-backend/build
+# Frontend
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+frontend/.vercel/
+frontend/.swc/
+
+# Backend
+backend/dist/
+backend/build/
+backend/.nest/
+
+# Test Results & Coverage
+**/coverage/
+**/.nyc_output/
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+**/.playwright/
+**/junit.xml
+**/coverage.lcov
+**/.coverage/
+**/htmlcov/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.tox/
+
+# Jest
+**/.jest-cache/
+**/jest-cache/
+**/coverage/
+
+# Playwright
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+**/.playwright/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+**/*.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+**/.env
+**/.env.local
+**/.env*.local
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.project
+.classpath
+.settings/
+*.iml
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.cache
+.cache/
+**/.cache/
+**/tmp/
+**/temp/
+
+# Build artifacts
+*.tsbuildinfo
+*.d.ts.map
+*.js.map
+*.map
+
+# MongoDB
+*.mongodb
+
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.npm
+.eslintcache
+.stylelintcache
+*.tgz
+*.tar.gz
